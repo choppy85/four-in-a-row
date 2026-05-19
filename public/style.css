@@ -1,0 +1,277 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+}
+
+/* ── Page switching — only one visible at a time ── */
+#page-lobby,
+#page-waiting,
+#page-game {
+  display: none;
+  min-height: 100vh;
+  width: 100%;
+}
+
+#page-lobby.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+#page-waiting.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+}
+
+#page-game.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+/* ── Lobby ── */
+h1 {
+  font-size: 2.4rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+h2 {
+  font-size: 1.6rem;
+  text-align: center;
+}
+
+.lobby-card {
+  background: #16213e;
+  border-radius: 16px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+}
+
+input {
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #0f0f23;
+  color: #eee;
+  font-size: 1rem;
+  width: 100%;
+}
+input:focus { outline: none; border-color: #5865f2; }
+
+button {
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #5865f2;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  width: 100%;
+  transition: background 0.15s, transform 0.1s;
+}
+button:hover:not(:disabled) { background: #4752c4; transform: translateY(-1px); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+button.secondary { background: #2a2a4a; }
+button.secondary:hover:not(:disabled) { background: #3a3a6a; }
+
+.divider { text-align: center; color: #555; font-size: 0.85rem; }
+
+.join-row { display: flex; gap: 10px; }
+.join-row button { flex: 1; }
+
+#lobby-status { color: #aaa; font-size: 0.9rem; }
+
+/* ── Waiting ── */
+.code-box {
+  background: #16213e;
+  border-radius: 16px;
+  padding: 36px 56px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.code-box p { color: #888; font-size: 1rem; }
+#room-code-display {
+  font-size: 4.5rem;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  color: #fff;
+}
+
+/* ── Game ── */
+#status-bar {
+  font-size: 1.4rem;
+  font-weight: 500;
+  text-align: center;
+  min-height: 2em;
+}
+
+#game-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  width: 100%;
+}
+
+/* ── Player sides ── */
+.player-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.player-photo {
+  width: 240px;
+  height: 320px;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 16px;
+  display: block;
+}
+
+.left-side .player-photo {
+  border: 4px solid #e74c3c;
+  box-shadow: 0 0 24px rgba(231,76,60,0.5);
+}
+.right-side .player-photo {
+  border: 4px solid #f1c40f;
+  box-shadow: 0 0 24px rgba(241,196,15,0.5);
+}
+
+.player-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: center;
+}
+.red-name    { color: #e74c3c; }
+.yellow-name { color: #f1c40f; }
+
+/* ── Board ── */
+#board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(7, 64px);
+  gap: 7px;
+  background: #0d1b3e;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid #1e2d5a;
+}
+
+.cell {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #0a2040;
+  cursor: pointer;
+  border: 2px solid #1a3060;
+  transition: background 0.15s, transform 0.1s;
+}
+.cell:hover         { background: #1a4a80; transform: scale(1.07); }
+.cell.red           { background: #e74c3c; cursor: default; transform: none; border-color: #c0392b; }
+.cell.yellow        { background: #f1c40f; cursor: default; transform: none; border-color: #d4ac0d; }
+
+/* ── Rematch ── */
+#rematch-area {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+#rematch-area.visible {
+  display: flex;
+}
+#rematch-btn {
+  background: #27ae60;
+  width: auto;
+  padding: 12px 48px;
+  font-size: 1.05rem;
+}
+#rematch-btn:hover:not(:disabled) { background: #1e8449; }
+#rematch-status { color: #aaa; font-size: 0.9rem; }
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  #game-area    { flex-direction: column; gap: 20px; }
+  .player-side  { flex-direction: row; gap: 16px; align-items: center; }
+  .player-photo { width: 100px; height: 130px; }
+  #board        { grid-template-columns: repeat(7, 44px); gap: 5px; }
+  .cell         { width: 44px; height: 44px; }
+}
+
+/* ── Who goes first toggle ── */
+.option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-label {
+  font-size: 0.85rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 0;
+  background: #0f0f23;
+  color: #888;
+  font-size: 0.95rem;
+  font-weight: 400;
+  border: none;
+  width: auto;
+  transition: background 0.15s, color 0.15s;
+}
+
+.toggle-btn.active {
+  background: #5865f2;
+  color: #fff;
+  font-weight: 600;
+}
+
+.toggle-btn:hover:not(.active) {
+  background: #1a1a3a;
+  color: #ccc;
+  transform: none;
+}
