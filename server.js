@@ -21,18 +21,18 @@ function checkWin(board, player) {
     for (let c = 0; c < cols; c++) {
       if (board[r][c] !== player) continue;
       for (const [dr, dc] of dirs) {
-        let count = 1;
+        const cells = [[r,c]];
         for (let i = 1; i < 4; i++) {
           const nr = r + dr*i, nc = c + dc*i;
           if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) break;
           if (board[nr][nc] !== player) break;
-          count++;
+          cells.push([nr, nc]);
         }
-        if (count === 4) return true;
+        if (cells.length === 4) return cells;
       }
     }
   }
-  return false;
+  return null;
 }
 
 function dropPiece(board, col, player) {
@@ -48,18 +48,24 @@ function initRoom(roomId) {
   room.status = 'playing';
   room.currentTurn = room.firstTurn;
   room.rematchVotes = [];
+  room.lastMove = null;
+  room.winningCells = null;
+  room.moveHistory = [];
+  room.undosLeft = [3, 3];
   io.to(roomId).emit('game_state', room);
   io.to(roomId).emit('game_start', {
     players: room.players.map(p => p.name),
-    firstTurn: room.firstTurn
+    firstTurn: room.firstTurn,
+    wins: room.wins
   });
+  console.log(`[${roomId}] Game started — firstTurn: ${room.firstTurn}`);
 }
 
 io.on('connection', (socket) => {
+  console.log(`[CONNECT] socket ${socket.id}`);
   socket.data.playerIndex = -1;
   socket.data.roomId = null;
 
-  // ── Create room ──────────────────────────────────────────────
   socket.on('create_room', ({ name, firstTurn }) => {
     const roomId = Math.random().toString(36).slice(2, 7).toUpperCase();
     const ft = (firstTurn === 0 || firstTurn === 1) ? firstTurn : 0;
@@ -70,19 +76,26 @@ io.on('connection', (socket) => {
       firstTurn: ft,
       spectators: [],
       status: 'waiting',
-      rematchVotes: []
+      rematchVotes: [],
+      lastMove: null,
+      winningCells: null,
+      moveHistory: [],
+      undosLeft: [3, 3],
+      wins: [0, 0]
     };
     socket.join(roomId);
     socket.data.roomId = roomId;
     socket.data.playerIndex = 0;
-    console.log(`Room ${roomId} created by ${name} — socket ${socket.id} is player 0`);
+    console.log(`[${roomId}] Created by ${name} — socket ${socket.id} = player 0`);
     socket.emit('room_created', { roomId });
   });
 
-  // ── Join room ─────────────────────────────────────────────────
   socket.on('join_room', ({ roomId, name, asSpectator }) => {
     const room = rooms[roomId];
-    if (!room) return socket.emit('error', 'Room not found');
+    if (!room) {
+      console.log(`[JOIN FAIL] socket ${socket.id} tried ${roomId} — not found`);
+      return socket.emit('error', 'Room not found');
+    }
 
     socket.join(roomId);
     socket.data.roomId = roomId;
@@ -90,43 +103,59 @@ io.on('connection', (socket) => {
     if (!asSpectator && room.players.length < 2) {
       room.players.push({ id: socket.id, name });
       socket.data.playerIndex = 1;
-      console.log(`${name} joined room ${roomId} — socket ${socket.id} is player 1`);
+      console.log(`[${roomId}] ${name} joined — socket ${socket.id} = player 1`);
       initRoom(roomId);
     } else {
       socket.data.playerIndex = -1;
       room.spectators.push({ id: socket.id, name });
+      console.log(`[${roomId}] ${name} watching — socket ${socket.id}`);
       socket.emit('game_state', room);
       socket.emit('you_are_spectator');
     }
   });
 
-  // ── Drop piece ───────────────────────────────────────────────
   socket.on('drop_piece', ({ col }) => {
     const roomId = socket.data.roomId;
     const room = rooms[roomId];
-    if (!room || room.status !== 'playing') return;
-
     const playerIndex = socket.data.playerIndex;
-    if (playerIndex !== room.currentTurn) return;
+
+    console.log(`[DROP] socket ${socket.id} room ${roomId} player ${playerIndex} col ${col}`);
+
+    if (!room) { console.log('  → no room'); return; }
+    if (room.status !== 'playing') { console.log(`  → status is ${room.status}, ignoring`); return; }
+    if (playerIndex !== room.currentTurn) {
+      console.log(`  → not your turn (currentTurn=${room.currentTurn})`);
+      return;
+    }
 
     const player = playerIndex === 0 ? 'R' : 'Y';
     const row = dropPiece(room.board, col, player);
-    if (row === -1) return;
+    if (row === -1) { console.log('  → column full'); return; }
 
-    if (checkWin(room.board, player)) {
+    room.moveHistory.push({ row, col, player, playerIndex });
+    room.lastMove = { row, col, player };
+    console.log(`  → placed at row ${row} col ${col}`);
+
+    const winningCells = checkWin(room.board, player);
+    if (winningCells) {
       room.status = 'finished';
+      room.winningCells = winningCells;
+      room.wins[playerIndex]++;
       io.to(roomId).emit('game_state', room);
       io.to(roomId).emit('game_over', {
         winner: room.players[playerIndex].name,
-        winnerIndex: playerIndex
+        winnerIndex: playerIndex,
+        winningCells,
+        wins: room.wins
       });
+      console.log(`[${roomId}] ${room.players[playerIndex].name} won — score: ${room.wins[0]}-${room.wins[1]}`);
       return;
     }
 
     if (!room.board.flat().includes(null)) {
       room.status = 'finished';
       io.to(roomId).emit('game_state', room);
-      io.to(roomId).emit('game_over', { winner: null });
+      io.to(roomId).emit('game_over', { winner: null, wins: room.wins });
       return;
     }
 
@@ -134,45 +163,81 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game_state', room);
   });
 
-  // ── Rematch vote ─────────────────────────────────────────────
-  socket.on('vote_rematch', () => {
-  const roomId = socket.data.roomId;
-  const room = rooms[roomId];
-  if (!room || room.status !== 'finished') return;
-
-  const playerIndex = socket.data.playerIndex;
-  console.log(`Rematch vote from socket ${socket.id} — playerIndex: ${playerIndex}`);
-
-  if (playerIndex < 0) return;
-  if (room.rematchVotes.includes(playerIndex)) {
-    console.log(`Player ${playerIndex} already voted — ignoring`);
-    return;
-  }
-
-  room.rematchVotes.push(playerIndex);
-  console.log(`Votes so far: ${JSON.stringify(room.rematchVotes)}`);
-
-  if (room.rematchVotes.length === 2) {
-    console.log('Both voted — starting rematch');
-    room.firstTurn = 1 - room.firstTurn;
-    // rematchVotes reset happens inside initRoom
-    initRoom(roomId);
-  } else {
-    // Only emit vote count if we still need more votes
-    io.to(roomId).emit('rematch_vote', { votes: room.rematchVotes.length, voterIndex: playerIndex });
-  }
-});
-
-  // ── Disconnect ───────────────────────────────────────────────
-  socket.on('disconnect', () => {
+  socket.on('undo', () => {
     const roomId = socket.data.roomId;
+    const room = rooms[roomId];
+    if (!room || room.status !== 'playing') return;
+
+    const playerIndex = socket.data.playerIndex;
+    if (playerIndex < 0) return;
+
+    if (room.moveHistory.length === 0) {
+      console.log(`[${roomId}] Undo failed — no moves`);
+      return;
+    }
+
+    const lastMove = room.moveHistory[room.moveHistory.length - 1];
+
+    if (lastMove.playerIndex !== playerIndex) {
+      console.log(`[${roomId}] Undo denied — player ${playerIndex} tried to undo player ${lastMove.playerIndex}'s move`);
+      socket.emit('undo_denied', 'You can only undo your own last move');
+      return;
+    }
+
+    if (room.undosLeft[playerIndex] <= 0) {
+      console.log(`[${roomId}] Undo denied — player ${playerIndex} has no undos left`);
+      socket.emit('undo_denied', 'No undos remaining');
+      return;
+    }
+
+    room.board[lastMove.row][lastMove.col] = null;
+    room.moveHistory.pop();
+    room.undosLeft[playerIndex]--;
+    room.currentTurn = playerIndex;
+    room.lastMove = room.moveHistory.length > 0
+      ? room.moveHistory[room.moveHistory.length - 1]
+      : null;
+
+    console.log(`[${roomId}] Player ${playerIndex} undid move — undos left: ${room.undosLeft[playerIndex]}`);
+
+    io.to(roomId).emit('game_state', room);
+    io.to(roomId).emit('undo_performed', {
+      byPlayer: playerIndex,
+      undosLeft: room.undosLeft
+    });
+  });
+
+  socket.on('vote_rematch', () => {
+    const roomId = socket.data.roomId;
+    const room = rooms[roomId];
+    if (!room || room.status !== 'finished') return;
+
+    const playerIndex = socket.data.playerIndex;
+    if (playerIndex < 0 || room.rematchVotes.includes(playerIndex)) return;
+
+    room.rematchVotes.push(playerIndex);
+    console.log(`[${roomId}] Rematch vote from player ${playerIndex} — votes: ${JSON.stringify(room.rematchVotes)}`);
+
+    if (room.rematchVotes.length === 2) {
+      room.firstTurn = 1 - room.firstTurn;
+      initRoom(roomId);
+    } else {
+      io.to(roomId).emit('rematch_vote', {
+        votes: room.rematchVotes.length,
+        voterIndex: playerIndex
+      });
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    const roomId = socket.data.roomId;
+    console.log(`[DISCONNECT] socket ${socket.id} reason: ${reason} room: ${roomId}`);
     if (!roomId || !rooms[roomId]) return;
     if (socket.data.playerIndex >= 0) {
       rooms[roomId].status = 'finished';
       io.to(roomId).emit('player_left');
     }
   });
-
 });
 
 server.listen(process.env.PORT || 3000, () =>

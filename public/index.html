@@ -9,6 +9,8 @@
 </head>
 <body>
 
+  <div id="conn-status" class="conn-good">●</div>
+
   <!-- LOBBY -->
   <div id="page-lobby">
     <h1>4 in a Row</h1>
@@ -36,20 +38,28 @@
   <div id="page-waiting">
     <h2>Waiting for opponent...</h2>
     <div class="code-box">
-      <p>Share this code with your opponent</p>
+      <p>Share this code or invite link</p>
       <div id="room-code-display"></div>
+      <button id="copy-link-btn" onclick="copyInviteLink()">Copy Invite Link</button>
+      <p id="copy-status"></p>
     </div>
   </div>
 
   <!-- GAME -->
   <div id="page-game">
+    <canvas id="confetti-canvas"></canvas>
     <div id="status-bar"></div>
     <div id="game-area">
       <div class="player-side left-side">
         <img src="player1.jpeg" alt="Player 1" class="player-photo" onerror="this.style.background='#e74c3c';this.alt=''">
         <div id="label-p0" class="player-name red-name"></div>
+        <div id="score-p0" class="player-score red-name">Wins: 0</div>
       </div>
       <div id="board-wrap">
+        <div id="undo-area">
+          <button id="undo-btn" onclick="requestUndo()">↶ Undo</button>
+          <span id="undo-count">3 left</span>
+        </div>
         <div id="board"></div>
         <div id="rematch-area">
           <button id="rematch-btn" onclick="voteRematch()">Rematch</button>
@@ -59,6 +69,7 @@
       <div class="player-side right-side">
         <img src="player2.jpeg" alt="Player 2" class="player-photo" onerror="this.style.background='#f1c40f';this.alt=''">
         <div id="label-p1" class="player-name yellow-name"></div>
+        <div id="score-p1" class="player-score yellow-name">Wins: 0</div>
       </div>
     </div>
   </div>

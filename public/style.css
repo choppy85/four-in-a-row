@@ -7,16 +7,27 @@ body {
   min-height: 100vh;
 }
 
-/* ── Page switching — only one visible at a time ── */
-#page-lobby,
-#page-waiting,
-#page-game {
+#conn-status {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  font-size: 14px;
+  z-index: 1000;
+}
+#conn-status.conn-good { color: #27ae60; }
+#conn-status.conn-bad  { color: #e74c3c; animation: pulse 1s infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+#page-lobby, #page-waiting, #page-game {
   display: none;
   min-height: 100vh;
   width: 100%;
 }
-
-#page-lobby.active {
+#page-lobby.active, #page-waiting.active, #page-game.active {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -25,35 +36,8 @@ body {
   padding: 24px;
 }
 
-#page-waiting.active {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 24px;
-}
-
-#page-game.active {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 24px;
-}
-
-/* ── Lobby ── */
-h1 {
-  font-size: 2.4rem;
-  text-align: center;
-  letter-spacing: 0.04em;
-}
-
-h2 {
-  font-size: 1.6rem;
-  text-align: center;
-}
+h1 { font-size: 2.4rem; text-align: center; letter-spacing: 0.04em; }
+h2 { font-size: 1.6rem; text-align: center; }
 
 .lobby-card {
   background: #16213e;
@@ -95,13 +79,20 @@ button.secondary { background: #2a2a4a; }
 button.secondary:hover:not(:disabled) { background: #3a3a6a; }
 
 .divider { text-align: center; color: #555; font-size: 0.85rem; }
-
 .join-row { display: flex; gap: 10px; }
 .join-row button { flex: 1; }
+#lobby-status { color: #5865f2; font-size: 0.95rem; text-align: center; }
 
-#lobby-status { color: #aaa; font-size: 0.9rem; }
+.option-group { display: flex; flex-direction: column; gap: 8px; }
+.option-label { font-size: 0.85rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; }
+.toggle-row { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #333; }
+.toggle-btn {
+  flex: 1; padding: 10px; border-radius: 0; background: #0f0f23; color: #888;
+  font-size: 0.95rem; font-weight: 400; width: auto;
+}
+.toggle-btn.active { background: #5865f2; color: #fff; font-weight: 600; }
+.toggle-btn:hover:not(.active) { background: #1a1a3a; color: #ccc; transform: none; }
 
-/* ── Waiting ── */
 .code-box {
   background: #16213e;
   border-radius: 16px;
@@ -110,6 +101,7 @@ button.secondary:hover:not(:disabled) { background: #3a3a6a; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  align-items: center;
 }
 .code-box p { color: #888; font-size: 1rem; }
 #room-code-display {
@@ -118,14 +110,11 @@ button.secondary:hover:not(:disabled) { background: #3a3a6a; }
   letter-spacing: 0.25em;
   color: #fff;
 }
+#copy-link-btn { width: auto; padding: 10px 24px; background: #27ae60; }
+#copy-link-btn:hover { background: #1e8449; }
+#copy-status { color: #27ae60; min-height: 1.2em; font-size: 0.9rem; }
 
-/* ── Game ── */
-#status-bar {
-  font-size: 1.4rem;
-  font-weight: 500;
-  text-align: center;
-  min-height: 2em;
-}
+#status-bar { font-size: 1.4rem; font-weight: 500; text-align: center; min-height: 2em; }
 
 #game-area {
   display: flex;
@@ -135,47 +124,44 @@ button.secondary:hover:not(:disabled) { background: #3a3a6a; }
   width: 100%;
 }
 
-/* ── Player sides ── */
-.player-side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
-}
-
-.player-photo {
-  width: 240px;
-  height: 320px;
-  object-fit: cover;
-  object-position: top center;
-  border-radius: 16px;
-  display: block;
-}
-
-.left-side .player-photo {
-  border: 4px solid #e74c3c;
-  box-shadow: 0 0 24px rgba(231,76,60,0.5);
-}
-.right-side .player-photo {
-  border: 4px solid #f1c40f;
-  box-shadow: 0 0 24px rgba(241,196,15,0.5);
-}
-
-.player-name {
-  font-size: 1.15rem;
-  font-weight: 600;
-  text-align: center;
-}
+.player-side { display: flex; flex-direction: column; align-items: center; gap: 14px; flex-shrink: 0; }
+.player-photo { width: 240px; height: 320px; object-fit: cover; object-position: top center; border-radius: 16px; display: block; }
+.left-side .player-photo  { border: 4px solid #e74c3c; box-shadow: 0 0 24px rgba(231,76,60,0.5); }
+.right-side .player-photo { border: 4px solid #f1c40f; box-shadow: 0 0 24px rgba(241,196,15,0.5); }
+.player-name { font-size: 1.15rem; font-weight: 600; text-align: center; }
 .red-name    { color: #e74c3c; }
 .yellow-name { color: #f1c40f; }
 
-/* ── Board ── */
-#board-wrap {
+.player-score {
+  font-size: 1rem;
+  font-weight: 600;
+  background: #16213e;
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid #2a2a4a;
+}
+
+#board-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+#undo-area {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
+}
+
+#undo-btn {
+  background: #e67e22;
+  width: auto;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+}
+#undo-btn:hover:not(:disabled) { background: #ca6f1e; }
+#undo-btn:disabled { background: #555; }
+
+#undo-count {
+  color: #aaa;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 #board {
@@ -196,82 +182,50 @@ button.secondary:hover:not(:disabled) { background: #3a3a6a; }
   cursor: pointer;
   border: 2px solid #1a3060;
   transition: background 0.15s, transform 0.1s;
+  position: relative;
 }
-.cell:hover         { background: #1a4a80; transform: scale(1.07); }
-.cell.red           { background: #e74c3c; cursor: default; transform: none; border-color: #c0392b; }
-.cell.yellow        { background: #f1c40f; cursor: default; transform: none; border-color: #d4ac0d; }
+.cell:hover { background: #1a4a80; transform: scale(1.07); }
+.cell.red    { background: #e74c3c; cursor: default; transform: none; border-color: #c0392b; }
+.cell.yellow { background: #f1c40f; cursor: default; transform: none; border-color: #d4ac0d; }
 
-/* ── Rematch ── */
-#rematch-area {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+.cell.last-move {
+  box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(255,255,255,0.6);
+  animation: lastPulse 1.2s ease-in-out infinite;
 }
-#rematch-area.visible {
-  display: flex;
+@keyframes lastPulse {
+  0%, 100% { box-shadow: 0 0 0 3px #fff, 0 0 14px rgba(255,255,255,0.5); }
+  50%      { box-shadow: 0 0 0 3px #fff, 0 0 24px rgba(255,255,255,0.9); }
 }
-#rematch-btn {
-  background: #27ae60;
-  width: auto;
-  padding: 12px 48px;
-  font-size: 1.05rem;
+
+.cell.winning {
+  animation: winPulse 0.6s ease-in-out infinite;
+  box-shadow: 0 0 0 4px #fff, 0 0 28px rgba(255,255,255,0.8);
 }
+@keyframes winPulse {
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(1.12); }
+}
+
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 999;
+}
+
+#rematch-area { display: none; flex-direction: column; align-items: center; gap: 10px; }
+#rematch-area.visible { display: flex; }
+#rematch-btn { background: #27ae60; width: auto; padding: 12px 48px; font-size: 1.05rem; }
 #rematch-btn:hover:not(:disabled) { background: #1e8449; }
 #rematch-status { color: #aaa; font-size: 0.9rem; }
 
-/* ── Responsive ── */
 @media (max-width: 860px) {
   #game-area    { flex-direction: column; gap: 20px; }
   .player-side  { flex-direction: row; gap: 16px; align-items: center; }
   .player-photo { width: 100px; height: 130px; }
   #board        { grid-template-columns: repeat(7, 44px); gap: 5px; }
   .cell         { width: 44px; height: 44px; }
-}
-
-/* ── Who goes first toggle ── */
-.option-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.option-label {
-  font-size: 0.85rem;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.toggle-row {
-  display: flex;
-  gap: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #333;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 10px;
-  border-radius: 0;
-  background: #0f0f23;
-  color: #888;
-  font-size: 0.95rem;
-  font-weight: 400;
-  border: none;
-  width: auto;
-  transition: background 0.15s, color 0.15s;
-}
-
-.toggle-btn.active {
-  background: #5865f2;
-  color: #fff;
-  font-weight: 600;
-}
-
-.toggle-btn:hover:not(.active) {
-  background: #1a1a3a;
-  color: #ccc;
-  transform: none;
 }
