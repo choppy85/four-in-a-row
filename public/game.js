@@ -1,4 +1,11 @@
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000
+});
+
 let myIndex = -1;
 let isSpectator = false;
 let firstChoice = 'me';
@@ -77,14 +84,27 @@ socket.on('connect', () => {
   console.log('[SOCKET] connected', socket.id);
   document.getElementById('conn-status').className = 'conn-good';
   document.getElementById('conn-status').title = 'Connected';
+
+  // Re-attach to room after reconnect (works for both players)
+  if (currentRoomId) {
+    console.log('[RECONNECT] re-attaching to room', currentRoomId);
+    socket.emit('rejoin_room', { roomId: currentRoomId });
+  }
 });
+
 socket.on('disconnect', (reason) => {
   console.warn('[SOCKET] disconnected:', reason);
   document.getElementById('conn-status').className = 'conn-bad';
   document.getElementById('conn-status').title = 'Disconnected: ' + reason;
 });
+
 socket.on('connect_error', (err) => {
   console.error('[SOCKET] connect error:', err.message);
+  document.getElementById('conn-status').className = 'conn-bad';
+});
+
+socket.io.on('reconnect_attempt', (n) => {
+  console.log('[SOCKET] reconnect attempt', n);
   document.getElementById('conn-status').className = 'conn-bad';
 });
 
@@ -158,6 +178,10 @@ socket.on('game_start', ({ players, firstTurn, wins: serverWins }) => {
     myIndex = 1;
     console.log('I am player 1 (joiner)');
   }
+  // Track room ID for reconnection
+  if (!currentRoomId) {
+    currentRoomId = document.getElementById('room-code').value.trim().toUpperCase();
+  }
   console.log('game_start — myIndex:', myIndex, 'firstTurn:', firstTurn);
 
   if (serverWins) wins = serverWins;
@@ -197,6 +221,10 @@ socket.on('game_state', (room) => {
     const whose = room.players[room.currentTurn]?.name;
     const isMyTurn = room.currentTurn === myIndex;
     if (whose) setStatus(isMyTurn ? '🎯 Your turn' : `${whose}'s turn`);
+    // If we're playing, make sure we're on the game page (handy after reconnect)
+    if (document.getElementById('page-game').classList.contains('active') === false) {
+      showPage('page-game');
+    }
   }
 });
 
@@ -269,7 +297,7 @@ function requestUndo() {
 function drop(col) {
   console.log('[CLICK] col', col, 'myIndex', myIndex, 'socket.connected:', socket.connected);
   if (!socket.connected) {
-    alert('You are disconnected from the server. Refresh the page.');
+    alert('You are disconnected from the server. Reconnecting...');
     return;
   }
   socket.emit('drop_piece', { col });

@@ -114,6 +114,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('rejoin_room', ({ roomId }) => {
+  const room = rooms[roomId];
+  if (!room) return;
+  socket.join(roomId);
+  socket.data.roomId = roomId;
+  console.log(`[${roomId}] socket ${socket.id} re-attached`);
+  socket.emit('game_state', room);
+});
+
   socket.on('drop_piece', ({ col }) => {
     const roomId = socket.data.roomId;
     const room = rooms[roomId];
