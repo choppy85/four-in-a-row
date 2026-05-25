@@ -114,14 +114,32 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('rejoin_room', ({ roomId }) => {
-  const room = rooms[roomId];
-  if (!room) return;
-  socket.join(roomId);
-  socket.data.roomId = roomId;
-  console.log(`[${roomId}] socket ${socket.id} re-attached`);
-  socket.emit('game_state', room);
-});
+  socket.on('rejoin_room', ({ roomId, playerIndex }) => {
+    const room = rooms[roomId];
+    if (!room) {
+      console.log(`[REJOIN FAIL] socket ${socket.id} room ${roomId} not found`);
+      return socket.emit('error', 'Room no longer exists');
+    }
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+
+    // Reclaim player slot if the client says it owned one
+    if ((playerIndex === 0 || playerIndex === 1) && room.players[playerIndex]) {
+      room.players[playerIndex].id = socket.id;
+      socket.data.playerIndex = playerIndex;
+      if (room.disconnectTimers && room.disconnectTimers[playerIndex]) {
+        clearTimeout(room.disconnectTimers[playerIndex]);
+        delete room.disconnectTimers[playerIndex];
+      }
+      console.log(`[${roomId}] socket ${socket.id} re-attached as player ${playerIndex}`);
+      io.to(roomId).emit('player_reconnected', { playerIndex });
+    } else {
+      socket.data.playerIndex = -1;
+      console.log(`[${roomId}] socket ${socket.id} re-attached as spectator`);
+    }
+
+    socket.emit('game_state', room);
+  });
 
   socket.on('drop_piece', ({ col }) => {
     const roomId = socket.data.roomId;
@@ -240,12 +258,30 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', (reason) => {
     const roomId = socket.data.roomId;
-    console.log(`[DISCONNECT] socket ${socket.id} reason: ${reason} room: ${roomId}`);
+    const playerIndex = socket.data.playerIndex;
+    console.log(`[DISCONNECT] socket ${socket.id} reason: ${reason} room: ${roomId} player: ${playerIndex}`);
     if (!roomId || !rooms[roomId]) return;
-    if (socket.data.playerIndex >= 0) {
-      rooms[roomId].status = 'finished';
-      io.to(roomId).emit('player_left');
-    }
+    if (playerIndex < 0) return;
+
+    const room = rooms[roomId];
+    io.to(roomId).emit('player_disconnected', { playerIndex });
+
+    // Grace period so mobile browsers (iOS Safari, Android Chrome) can reconnect
+    // after backgrounding without the game being ended.
+    room.disconnectTimers = room.disconnectTimers || {};
+    if (room.disconnectTimers[playerIndex]) clearTimeout(room.disconnectTimers[playerIndex]);
+    const disconnectedSocketId = socket.id;
+    room.disconnectTimers[playerIndex] = setTimeout(() => {
+      const r = rooms[roomId];
+      if (!r) return;
+      // Only end the game if the player never reclaimed their slot
+      if (r.players[playerIndex] && r.players[playerIndex].id === disconnectedSocketId) {
+        r.status = 'finished';
+        console.log(`[${roomId}] player ${playerIndex} did not reconnect — ending game`);
+        io.to(roomId).emit('player_left');
+      }
+      delete r.disconnectTimers[playerIndex];
+    }, 90000);
   });
 });
 

@@ -87,8 +87,17 @@ socket.on('connect', () => {
 
   // Re-attach to room after reconnect (works for both players)
   if (currentRoomId) {
-    console.log('[RECONNECT] re-attaching to room', currentRoomId);
-    socket.emit('rejoin_room', { roomId: currentRoomId });
+    console.log('[RECONNECT] re-attaching to room', currentRoomId, 'as player', myIndex);
+    socket.emit('rejoin_room', { roomId: currentRoomId, playerIndex: myIndex });
+  }
+});
+
+// iOS Safari often suspends sockets in the background. When the tab becomes
+// visible again, force a reconnect if we lost the connection while away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !socket.connected) {
+    console.log('[VISIBILITY] tab visible and socket disconnected — reconnecting');
+    socket.connect();
   }
 });
 
@@ -273,6 +282,16 @@ socket.on('undo_denied', (reason) => {
 socket.on('player_left', () => {
   setStatus('The other player left.');
   document.getElementById('rematch-area').classList.remove('visible');
+});
+
+socket.on('player_disconnected', ({ playerIndex }) => {
+  if (playerIndex === myIndex) return;
+  setStatus('⚠️ Opponent disconnected — waiting for them to reconnect...');
+});
+
+socket.on('player_reconnected', ({ playerIndex }) => {
+  if (playerIndex === myIndex) return;
+  setStatus('✓ Opponent reconnected');
 });
 
 socket.on('error', (msg) => {
