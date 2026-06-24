@@ -9,6 +9,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const rooms = {};
+const disconnectTimers = {};
 
 function makeBoard() {
   return Array(6).fill(null).map(() => Array(7).fill(null));
@@ -127,9 +128,9 @@ io.on('connection', (socket) => {
     if ((playerIndex === 0 || playerIndex === 1) && room.players[playerIndex]) {
       room.players[playerIndex].id = socket.id;
       socket.data.playerIndex = playerIndex;
-      if (room.disconnectTimers && room.disconnectTimers[playerIndex]) {
-        clearTimeout(room.disconnectTimers[playerIndex]);
-        delete room.disconnectTimers[playerIndex];
+      if (disconnectTimers[roomId]?.[playerIndex]) {
+        clearTimeout(disconnectTimers[roomId][playerIndex]);
+        delete disconnectTimers[roomId][playerIndex];
       }
       console.log(`[${roomId}] socket ${socket.id} re-attached as player ${playerIndex}`);
       io.to(roomId).emit('player_reconnected', { playerIndex });
@@ -268,10 +269,10 @@ io.on('connection', (socket) => {
 
     // Grace period so mobile browsers (iOS Safari, Android Chrome) can reconnect
     // after backgrounding without the game being ended.
-    room.disconnectTimers = room.disconnectTimers || {};
-    if (room.disconnectTimers[playerIndex]) clearTimeout(room.disconnectTimers[playerIndex]);
+    disconnectTimers[roomId] = disconnectTimers[roomId] || {};
+    if (disconnectTimers[roomId][playerIndex]) clearTimeout(disconnectTimers[roomId][playerIndex]);
     const disconnectedSocketId = socket.id;
-    room.disconnectTimers[playerIndex] = setTimeout(() => {
+    disconnectTimers[roomId][playerIndex] = setTimeout(() => {
       const r = rooms[roomId];
       if (!r) return;
       // Only end the game if the player never reclaimed their slot
@@ -280,7 +281,7 @@ io.on('connection', (socket) => {
         console.log(`[${roomId}] player ${playerIndex} did not reconnect — ending game`);
         io.to(roomId).emit('player_left');
       }
-      delete r.disconnectTimers[playerIndex];
+      delete disconnectTimers[roomId][playerIndex];
     }, 90000);
   });
 });
